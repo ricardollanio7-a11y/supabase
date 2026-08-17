@@ -2,11 +2,15 @@ name: Fork CI
 
 # Minimal stand-in for the upstream CI gate, runnable on a fork.
 #
-# The 48 workflows inherited from supabase/supabase mostly cannot run here:
-# 37 jobs target `blacksmith-*` runners and one targets `arm-runner` (neither
-# exists on a fork), and 34 reference `secrets.*` that a fork does not have.
-# This workflow reproduces only the three checks that gate every upstream PR
-# and that need nothing but a stock runner: typecheck, lint, and Prettier.
+# Most of the workflows inherited from supabase/supabase could not run here:
+# they target `blacksmith-*` runners (Supabase's managed fleet) or
+# `arm-runner`, neither of which a fork can reach, so their jobs sat in
+# `queued` forever rather than failing. Those 30 files were removed in the
+# same commit that rewrote this comment; every workflow left runs on stock
+# `ubuntu-latest`.
+#
+# This workflow reproduces the three checks that gate every upstream PR and
+# need nothing but a stock runner: typecheck, lint, and Prettier.
 
 on:
   pull_request:
