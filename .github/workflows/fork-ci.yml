@@ -1,0 +1,66 @@
+name: Fork CI
+
+# Minimal stand-in for the upstream CI gate, runnable on a fork.
+#
+# Most of the workflows inherited from supabase/supabase could not run here:
+# they target `blacksmith-*` runners (Supabase's managed fleet) or
+# `arm-runner`, neither of which a fork can reach, so their jobs sat in
+# `queued` forever rather than failing. Those 30 files were removed in the
+# same commit that rewrote this comment; every workflow left runs on stock
+# `ubuntu-latest`.
+#
+# This workflow reproduces the three checks that gate every upstream PR and
+# need nothing but a stock runner: typecheck, lint, and Prettier.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'claude/**'
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: fork-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: typecheck / lint / prettier
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the pnpm version pinned by package.json#packageManager
+      # (pnpm@11.13.1). Must run before setup-node so `cache: pnpm` resolves.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Each check runs even if an earlier one failed, so a single run reports
+      # every failing gate instead of stopping at the first.
+      - name: Typecheck
+        if: always()
+        run: pnpm typecheck
+
+      - name: Lint
+        if: always()
+        run: pnpm lint
+
+      # Runs after typecheck on purpose: typecheck generates the gitignored
+      # artifacts (lite-studio react-router types, www content.generated.ts)
+      # that .prettierignore must cover, so this ordering exercises that.
+      - name: Prettier
+        if: always()
+        run: pnpm test:prettier
